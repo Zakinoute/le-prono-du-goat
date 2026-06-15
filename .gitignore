@@ -31,6 +31,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code (données de session locales + grosse mémoire mind.mv2)
+/.claude/
+
+# logs de synchro locale
+scripts/sync.log
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

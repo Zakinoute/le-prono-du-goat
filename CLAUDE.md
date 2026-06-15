@@ -1,0 +1,85 @@
+# CLAUDE.md — Le Prono du GOAT
+
+App de pronostics pour la Coupe du Monde 2026 (remplace un concours Google Sheets
+sur un Discord de ~2 000 membres géré par « Karim »). Challenge DEENCODE #02.
+
+## Architecture du système
+
+| Brique | Rôle |
+|--------|------|
+| **Next.js + Supabase** | L'app (Auth + Postgres + RLS) — source de vérité & interface web |
+| **Make** | Orchestration : sync scores API-Football, notifications (alternative à n8n) |
+| **API-Football** | Données matchs + scores live (consommée par Make) |
+| **Claude API** | Profils IA des joueurs · Bonus 2 (IA vs Humains) |
+| **discord.js** | Bonus 1 : bot Discord (commandes slash, embeds, rappels) |
+| **Vercel** | Déploiement (PWA mobile-first) |
+
+## Stack
+
+- **Next.js 14** (App Router, TypeScript, dossier `src/`, alias `@/*`)
+- **Supabase** (Auth + Postgres + RLS) via `@supabase/ssr`
+- **Tailwind CSS** + **shadcn/ui** (style `new-york`, base `slate`, primary = vert)
+
+## Architecture du code
+
+```
+src/
+  app/
+    (auth)/            login, register, actions.ts (server actions)  — non protégé
+    (app)/             dashboard, matches, leagues, leaderboard, profile — PROTÉGÉ
+    auth/callback/     échange du code Supabase (confirmation e-mail / OAuth)
+    page.tsx           landing publique
+  components/ui/        composants shadcn (button, card, input, label)
+  components/layout/    navbar
+  components/coming-soon.tsx  placeholder des pages Phase 2
+  lib/supabase/        client.ts (browser), server.ts (RSC/actions + service role), middleware.ts
+  lib/constants.ts     barème, routes protégées, profils IA
+  types/database.ts    types de la base (maintenus à la main, voir migrations)
+  middleware.ts        refresh de session + protection des routes
+supabase/migrations/   0001 schéma · 0002 fonctions/triggers/vue · 0003 RLS · 0004 seed badges
+```
+
+## Conventions & décisions
+
+- **Un seul prono par (utilisateur, match)** — valable dans toutes ses ligues
+  (contrainte `unique (user_id, match_id)`).
+- **Barème** : score exact = **3 pts**, bon résultat = **1 pt**, sinon 0.
+  Calculé par le trigger `score_match_predictions` quand un match passe à `finished`.
+- **Verrouillage au coup d'envoi** appliqué au niveau **RLS** (policies insert/update
+  sur `predictions` exigent `matches.kickoff_at > now()`). La base est la source de vérité.
+- **Classement = vue SQL `league_standings`** (`security_invoker`), pas de table dénormalisée.
+- **Anti-triche** : on ne voit les pronos des co-membres qu'**après** le coup d'envoi
+  (policy select sur `predictions`).
+- Les **policies RLS qui interrogent la même table** passent par des fonctions
+  `security definer` (`is_member_of`, `shares_league_with`) pour éviter la récursion infinie.
+- Les **jobs serveur** (sync scores via Make, scoring, badges) utilisent la **clé
+  service role** (`createServiceClient`, contourne la RLS) — jamais côté client.
+- Réponses & UI **en français**.
+
+## État d'avancement
+
+- ✅ **Phase 1 — Fondations** : schéma Supabase complet (migrations + RLS + triggers
+  de scoring + vue classement), auth (login/register/callback/middleware), shell app
+  protégé + navbar, dashboard perso (points/pronos/ligues). **Build vert.**
+- 🚧 **Phase 2 — MVP Niveau 1** : pages `matches` (liste + saisie pronos verrouillés),
+  `leagues` (créer/rejoindre via code), `leaderboard` (vue standings), `profile`.
+  Actuellement des placeholders `ComingSoon`.
+- ⬜ **Phase 3** : Make (sync API-Football + notifs). ⬜ **Bonus 1** : bot Discord.
+  ⬜ **Bonus 2** : IA vs Humains (pronos Claude).
+
+## Commandes
+
+```bash
+npm run dev          # dev local (http://localhost:3000)
+npm run build        # build de prod
+npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit
+```
+
+Migrations Supabase : voir `supabase/README.md`.
+
+## Variables d'environnement
+
+Copier `.env.local.example` → `.env.local`. **Sans les clés Supabase, le
+middleware (`getUser`) échoue sur les routes protégées.** Voir `.env.local.example`
+pour la liste (Supabase, API-Football, Claude, Make, Discord, Cron).
