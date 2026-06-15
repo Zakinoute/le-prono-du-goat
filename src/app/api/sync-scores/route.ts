@@ -119,8 +119,9 @@ export async function GET(request: Request) {
         round: isGroup
           ? `Matchday ${m.matchday ?? 1}`
           : KNOCKOUT_LABELS[m.stage] ?? m.stage,
-        home_team: m.homeTeam.name,
-        away_team: m.awayTeam.name,
+        // non-null garanti par le filtre ci-dessus (équipes connues)
+        home_team: m.homeTeam.name as string,
+        away_team: m.awayTeam.name as string,
         home_team_code: m.homeTeam.tla,
         away_team_code: m.awayTeam.tla,
         home_team_logo: m.homeTeam.crest,
