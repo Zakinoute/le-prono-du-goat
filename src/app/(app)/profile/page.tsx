@@ -10,7 +10,9 @@ type PredRow = {
   points: number;
   is_exact: boolean;
   is_correct_result: boolean;
-  match: { status: string } | null;
+  home_score: number;
+  away_score: number;
+  match: { status: string; home_team: string; away_team: string } | null;
 };
 
 export default async function ProfilePage() {
@@ -28,7 +30,9 @@ export default async function ProfilePage() {
         .single(),
       supabase
         .from("predictions")
-        .select("points, is_exact, is_correct_result, match:matches(status)")
+        .select(
+          "points, is_exact, is_correct_result, home_score, away_score, match:matches(status, home_team, away_team)"
+        )
         .eq("user_id", user!.id),
       supabase.from("badges").select("*").order("created_at", { ascending: true }),
       supabase.from("user_badges").select("badge_id").eq("user_id", user!.id),
@@ -41,6 +45,35 @@ export default async function ProfilePage() {
   const bons = preds.filter((p) => p.is_correct_result && !p.is_exact).length;
   const played = preds.filter((p) => p.match?.status === "finished").length;
   const rate = played > 0 ? Math.round(((exacts + bons) / played) * 100) : 0;
+
+  // Tendances : équipe fétiche, buts moyens, répartition dom/ext/nul
+  let homeWins = 0;
+  let awayWins = 0;
+  let draws = 0;
+  let totalGoals = 0;
+  const backed = new Map<string, number>();
+  for (const p of preds) {
+    totalGoals += (p.home_score ?? 0) + (p.away_score ?? 0);
+    if (p.home_score > p.away_score) {
+      homeWins++;
+      if (p.match) backed.set(p.match.home_team, (backed.get(p.match.home_team) ?? 0) + 1);
+    } else if (p.away_score > p.home_score) {
+      awayWins++;
+      if (p.match) backed.set(p.match.away_team, (backed.get(p.match.away_team) ?? 0) + 1);
+    } else {
+      draws++;
+    }
+  }
+  let equipeFetiche: string | null = null;
+  let maxBacked = 0;
+  backed.forEach((n, team) => {
+    if (n > maxBacked) {
+      maxBacked = n;
+      equipeFetiche = team;
+    }
+  });
+  const avgGoals = pronos > 0 ? totalGoals / pronos : 0;
+  const pct = (n: number) => (pronos > 0 ? Math.round((n / pronos) * 100) : 0);
 
   const badges = (allBadges ?? []) as Badge[];
   const earnedIds = new Set((earned ?? []).map((e) => e.badge_id));
@@ -86,6 +119,50 @@ export default async function ProfilePage() {
           </Card>
         ))}
       </div>
+
+      {/* Tendances */}
+      {pronos > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Tes tendances
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">⭐ Équipe fétiche</p>
+                <p className="mt-1 truncate text-lg font-bold">
+                  {equipeFetiche ?? "—"}
+                </p>
+                {equipeFetiche && (
+                  <p className="text-xs text-muted-foreground">
+                    pronostiquée gagnante {maxBacked}×
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">⚽ Buts par prono</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">
+                  {avgGoals.toFixed(1)}
+                </p>
+                <p className="text-xs text-muted-foreground">en moyenne</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">🎲 Ta tendance</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {pct(homeWins)}% domicile
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pct(awayWins)}% extérieur · {pct(draws)}% nul
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* Badges */}
       <section className="space-y-3">
