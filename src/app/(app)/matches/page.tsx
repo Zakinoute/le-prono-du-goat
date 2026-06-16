@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Match, Prediction } from "@/types/database";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { PredictionForm } from "./prediction-form";
 
 export const metadata: Metadata = { title: "Matchs" };
@@ -173,6 +174,7 @@ export default async function MatchesPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { League, LeagueStanding } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export const metadata: Metadata = { title: "Classement" };
 
@@ -65,6 +66,7 @@ export default async function LeaderboardPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">
           🏆 Classement
