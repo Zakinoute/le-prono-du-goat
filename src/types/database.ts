@@ -208,6 +208,98 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["user_badges"]["Insert"]>;
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string | null;
+          icon: string | null;
+          link: string | null;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body?: string | null;
+          icon?: string | null;
+          link?: string | null;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
+        Relationships: [];
+      };
+      standings_snapshots: {
+        Row: {
+          id: string;
+          league_id: string;
+          user_id: string;
+          captured_on: string;
+          rank: number;
+          total_points: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          league_id: string;
+          user_id: string;
+          captured_on: string;
+          rank: number;
+          total_points: number;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["standings_snapshots"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      match_reactions: {
+        Row: {
+          id: string;
+          match_id: string;
+          user_id: string;
+          emoji: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          user_id: string;
+          emoji: string;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["match_reactions"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      match_summaries: {
+        Row: {
+          match_id: string;
+          provider: string;
+          kind: string;
+          content: string;
+          model: string | null;
+          generated_at: string;
+        };
+        Insert: {
+          match_id: string;
+          provider: string;
+          kind: string;
+          content: string;
+          model?: string | null;
+          generated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["match_summaries"]["Insert"]
+        >;
+        Relationships: [];
+      };
     };
     Views: {
       league_standings: {
@@ -255,5 +347,12 @@ export type Match = Database["public"]["Tables"]["matches"]["Row"];
 export type Prediction = Database["public"]["Tables"]["predictions"]["Row"];
 export type Badge = Database["public"]["Tables"]["badges"]["Row"];
 export type UserBadge = Database["public"]["Tables"]["user_badges"]["Row"];
+export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
+export type StandingsSnapshot =
+  Database["public"]["Tables"]["standings_snapshots"]["Row"];
+export type MatchReaction =
+  Database["public"]["Tables"]["match_reactions"]["Row"];
+export type MatchSummary =
+  Database["public"]["Tables"]["match_summaries"]["Row"];
 export type LeagueStanding =
   Database["public"]["Views"]["league_standings"]["Row"];

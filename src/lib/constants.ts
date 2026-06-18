@@ -33,3 +33,6 @@ export const AI_PROFILES = [
 ] as const;
 
 export type AiProfile = (typeof AI_PROFILES)[number];
+
+/** Emojis de réaction disponibles sous chaque match. */
+export const REACTION_EMOJIS = ["🔥", "😱", "😂", "💪", "😭"] as const;

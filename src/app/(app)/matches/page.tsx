@@ -2,11 +2,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { configuredProviders } from "@/lib/ai";
 import type { Match, Prediction } from "@/types/database";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { PredictionForm } from "./prediction-form";
+import { MatchInsight, type InsightInitial } from "./match-insight";
+import { MatchReactions } from "./match-reactions";
 
 export const metadata: Metadata = { title: "Matchs" };
 
@@ -52,9 +55,17 @@ function TeamSide({
 function MatchRow({
   match,
   prediction,
+  reactionCounts,
+  myReaction,
+  insight,
+  aiProviders,
 }: {
   match: Match;
   prediction?: Prediction;
+  reactionCounts: Record<string, number>;
+  myReaction: string | null;
+  insight: InsightInitial;
+  aiProviders: Array<"groq" | "gemini">;
 }) {
   const locked = new Date(match.kickoff_at).getTime() <= Date.now();
   const finished = match.status === "finished";
@@ -131,6 +142,25 @@ function MatchRow({
           </p>
         )}
       </div>
+
+      {aiProviders.length > 0 && (
+        <div className="mt-3 border-t border-border/60 pt-3">
+          <MatchInsight
+            matchId={match.id}
+            finished={finished}
+            initial={insight}
+            providers={aiProviders}
+          />
+        </div>
+      )}
+
+      <div className="mt-3 border-t border-border/60 pt-3">
+        <MatchReactions
+          matchId={match.id}
+          counts={reactionCounts}
+          mine={myReaction}
+        />
+      </div>
     </Card>
   );
 }
@@ -141,18 +171,45 @@ export default async function MatchesPage({
   searchParams: { journee?: string };
 }) {
   const supabase = createClient();
+  const aiProviders = configuredProviders();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: matches }, { data: predictions }] = await Promise.all([
+  const [
+    { data: matches },
+    { data: predictions },
+    { data: insights },
+    { data: reactions },
+  ] = await Promise.all([
     supabase.from("matches").select("*").order("kickoff_at"),
     supabase.from("predictions").select("*").eq("user_id", user!.id),
+    supabase.from("match_summaries").select("match_id, provider, content"),
+    supabase.from("match_reactions").select("match_id, user_id, emoji"),
   ]);
 
   const predByMatch = new Map(
     (predictions ?? []).map((p) => [p.match_id, p as Prediction])
   );
+
+  // Analyses IA mises en cache : un avis par (match, provider).
+  const insightByMatch = new Map<string, InsightInitial>();
+  for (const s of insights ?? []) {
+    const cur = insightByMatch.get(s.match_id) ?? { groq: null, gemini: null };
+    if (s.provider === "groq") cur.groq = s.content;
+    else if (s.provider === "gemini") cur.gemini = s.content;
+    insightByMatch.set(s.match_id, cur);
+  }
+
+  // Réactions : compteurs par match + réaction de l'utilisateur courant.
+  const countsByMatch = new Map<string, Record<string, number>>();
+  const mineByMatch = new Map<string, string>();
+  for (const r of reactions ?? []) {
+    const c = countsByMatch.get(r.match_id) ?? {};
+    c[r.emoji] = (c[r.emoji] ?? 0) + 1;
+    countsByMatch.set(r.match_id, c);
+    if (r.user_id === user!.id) mineByMatch.set(r.match_id, r.emoji);
+  }
 
   const journee = searchParams.journee;
   const allMatches = (matches ?? []) as Match[];
@@ -221,6 +278,12 @@ export default async function MatchesPage({
                   key={m.id}
                   match={m}
                   prediction={predByMatch.get(m.id)}
+                  reactionCounts={countsByMatch.get(m.id) ?? {}}
+                  myReaction={mineByMatch.get(m.id) ?? null}
+                  insight={
+                    insightByMatch.get(m.id) ?? { groq: null, gemini: null }
+                  }
+                  aiProviders={aiProviders}
                 />
               ))}
             </div>

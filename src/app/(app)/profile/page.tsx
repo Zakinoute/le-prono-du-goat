@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Badge } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AiProfile } from "./ai-profile";
+import { ShareProfile } from "./share-profile";
 
 export const metadata: Metadata = { title: "Profil" };
 
@@ -25,7 +27,7 @@ export default async function ProfilePage() {
     await Promise.all([
       supabase
         .from("profiles")
-        .select("username, display_name, ai_profile, bio")
+        .select("username, display_name, ai_profile, ai_profile_data, bio")
         .eq("id", user!.id)
         .single(),
       supabase
@@ -79,6 +81,10 @@ export default async function ProfilePage() {
   const earnedIds = new Set((earned ?? []).map((e) => e.badge_id));
 
   const name = profile?.display_name || profile?.username || "Joueur";
+  const aiData = (profile?.ai_profile_data ?? {}) as {
+    summary?: string;
+    traits?: string[];
+  };
 
   const STATS = [
     { label: "Points", value: totalPoints, icon: "⭐" },
@@ -105,6 +111,11 @@ export default async function ProfilePage() {
             ) : null}
           </p>
         </div>
+        {profile?.username && (
+          <div className="sm:ml-auto">
+            <ShareProfile username={profile.username} />
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -163,6 +174,13 @@ export default async function ProfilePage() {
           </div>
         </section>
       )}
+
+      {/* Profil IA */}
+      <AiProfile
+        profile={profile?.ai_profile ?? null}
+        summary={aiData.summary ?? null}
+        traits={Array.isArray(aiData.traits) ? aiData.traits : []}
+      />
 
       {/* Badges */}
       <section className="space-y-3">
